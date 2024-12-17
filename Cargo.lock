@@ -1792,7 +1792,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "upload-sauce"
+name = "upsauce"
 version = "0.1.0"
 dependencies = [
  "rustnao",
