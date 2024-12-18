@@ -38,7 +38,7 @@ fn upload_cdn(path: &str, linx_url: &str) -> Result<(String, String, String), St
     Ok((direct_url.to_owned(), url.to_owned(), delete_key.to_owned()))
 }
 
-fn get_pretty_sauce(direct_url: &str, cdn_url: &str) -> Result<String, String> {
+fn get_pretty_sauce(direct_url: &str, cdn_url: &str, delim: &str) -> Result<String, String> {
     let data = std::fs::read_to_string("config.json")
         .map_err(|e| format!("Failed reading `config.json`: {e}"))?;
 
@@ -85,7 +85,7 @@ fn get_pretty_sauce(direct_url: &str, cdn_url: &str) -> Result<String, String> {
                 if let Some(url) = url.as_str() {
                     for &(keyword, source_name) in &sources {
                         if url.contains(keyword) && !sauce.contains(source_name) {
-                            sauce += &format!("[{source_name}]({url})・");
+                            sauce += &format!("[{source_name}]({url}){delim}");
                             flag_skipped_source = false;
                             break;
                         }
@@ -103,7 +103,7 @@ fn get_pretty_sauce(direct_url: &str, cdn_url: &str) -> Result<String, String> {
             if let Some(source_url) = snao_obj["additional_fields"]["source"].as_str() {
                 for &(keyword, source_name) in &sources {
                     if source_url.contains(keyword) && !sauce.contains(source_name) {
-                        sauce += &format!("[{source_name}]({source_url})・");
+                        sauce += &format!("[{source_name}]({source_url}){delim}");
                         break;
                     }
                 }
@@ -145,6 +145,7 @@ fn main() {
     // TODO: Provide link or local path to image
     // let path = download_img(url); or path = `local`;
     let path = args().nth(1).expect("error: provide path/to/image");
+    let delim = " | "; // Delimiter between sources in Markdown string
     let linx_url = "https://put.icu"; // CDN
 
     // Upload image on linx-server instance
@@ -152,7 +153,7 @@ fn main() {
         .unwrap_or_else(|e| panic!("Failed uploading your image on linx-server: {e}"));
 
     // Get sauce from SauceNAO
-    match get_pretty_sauce(&direct_url, &url) {
+    match get_pretty_sauce(&direct_url, &url, delim) {
         Ok(pretty_sauce) => println!("\n{pretty_sauce}\n{direct_url}\n"),
         Err(e) => {
             println!("Failed sauce fetching. {e}\nDelete image uploaded on `{linx_url}`? [y/n]");
@@ -167,6 +168,4 @@ fn main() {
         }
     }
     println!("To delete your file on `{linx_url}` use: `curl -H \"Linx-Delete-Key: {delete_key}\" -X DELETE {url}`");
-
-    // Upload on
 }
