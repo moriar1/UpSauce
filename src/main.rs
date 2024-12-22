@@ -4,45 +4,52 @@ use std::{
     env::args,
     process::{Command, Stdio},
 };
+use url::Url;
+// Since UpSauce uses curl via `std::prcoess::Command`- using `url::Url` adds
+// unecessary convertations, so `&str` is preferable (the same for `PathBuf`)
 
-fn upload_cdn(path: &str, linx_url: &str) -> Result<(String, String, String), String> {
-    let linx_url_upload = linx_url.to_owned() + "/upload/";
-    let a = [
-        // "--http1.1",
-        "-H",
-        "Accept: application/json",
-        "-T",
-        path,
-        linx_url_upload.as_str(),
-    ];
+fn download_image(image_url: &str) -> Result<String, String> {
+    Command::new("curl")
+        .args(["-O", image_url])
+        .stderr(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .output()
+        .map_err(|e| format!("Failed curl request: {e}"))?;
 
+    let binding = Url::parse(image_url).unwrap();
+    let image_name = binding.path_segments().unwrap().last().unwrap();
+    Ok(image_name.to_string())
+}
+
+fn upload(path: &str, linx_url: &str) -> Result<(String, String, String), String> {
+    let url_upload = linx_url.to_owned() + "/upload/";
     let curl_stdout = Command::new("curl")
-        .args(a)
+        .args(["-H", "Accept: application/json", "-T", path, &url_upload])
         .stderr(Stdio::inherit())
         .output()
         .map_err(|e| format!("Failed curl request: {e}"))?
         .stdout;
+    // TODO: might be better utilizing tokio or reqwest
 
     let curl_stdout = String::from_utf8_lossy(&curl_stdout);
 
     let json_result: serde_json::Value = serde_json::from_str(&curl_stdout)
-        .map_err(|e| format!("Bad CDN response: {e}. Curl stdout:\n{curl_stdout}"))?;
+        .map_err(|e| format!("Bad linx-server response: {e}. Curl stdout:\n{curl_stdout}"))?;
 
     let direct_url = json_result["direct_url"]
         .as_str()
-        .ok_or("No direct_url from CDN")?;
-    let url = json_result["url"].as_str().ok_or("No url from CDN")?;
+        .ok_or("No direct_url from linx-server")?;
+    let url = json_result["url"].as_str().ok_or("No url from linx")?;
     let delete_key = json_result["delete_key"]
         .as_str()
-        .ok_or("No delete key from CDN")?;
+        .ok_or("No delete key from linx-server")?;
     Ok((direct_url.to_owned(), url.to_owned(), delete_key.to_owned()))
 }
 
-fn get_pretty_sauce(direct_url: &str, cdn_url: &str, delim: &str) -> Result<String, String> {
+fn get_pretty_sauce(direct_url: &str, linx_file_url: &str, delim: &str) -> Result<String, String> {
+    // Get SauceNAO API key
     let data = std::fs::read_to_string("config.json")
         .map_err(|e| format!("Failed reading `config.json`: {e}"))?;
-
-    // Get SauceNAO API key
     let json: serde_json::Value = serde_json::from_str(data.as_str())
         .map_err(|e| format!("JSON not well formatted: {e}."))?;
     let key = json["api_key"].as_str().ok_or("No api key".to_string())?;
@@ -59,7 +66,7 @@ fn get_pretty_sauce(direct_url: &str, cdn_url: &str, delim: &str) -> Result<Stri
     let json_result: serde_json::Value =
         serde_json::from_str(&result).map_err(|e| format!("Failed parse SNAO JSON: {e}"))?;
 
-    // Creating pretty sauce string
+    // Creating pretty sauce string based on SauceNAO json response
     let sources = [
         ("gelbooru", "Gelbooru"),
         ("danbooru", "Danbooru"),
@@ -101,6 +108,7 @@ fn get_pretty_sauce(direct_url: &str, cdn_url: &str, delim: &str) -> Result<Stri
         // But `Sankaku Channel` usually contains garbage, so skip it
         if !snao_obj["site"].as_str().unwrap_or("").contains("Sankaku ") {
             if let Some(source_url) = snao_obj["additional_fields"]["source"].as_str() {
+                // For loop as above (might be better implement separate function)
                 for &(keyword, source_name) in &sources {
                     if source_url.contains(keyword) && !sauce.contains(source_name) {
                         sauce += &format!("[{source_name}]({source_url}){delim}");
@@ -111,7 +119,7 @@ fn get_pretty_sauce(direct_url: &str, cdn_url: &str, delim: &str) -> Result<Stri
         }
     }
 
-    Ok(sauce + &format!("[CDN]({})", cdn_url))
+    Ok(sauce + &format!("[Image]({})", linx_file_url))
 }
 
 fn check_yes_input() -> bool {
@@ -129,9 +137,10 @@ fn delete_image_request(url: &str, key: &str) -> Result<(), String> {
 
     let output = Command::new("curl")
         .args(a)
-        .stderr(Stdio::inherit()) // TODO: curl stderr
+        .stderr(Stdio::inherit())
         .output()
-        .unwrap();
+        .map_err(|e| format!("Failed curl request: {e}"))?;
+
     let response = String::from_utf8_lossy(&output.stdout);
 
     if response == "DELETED" {
@@ -142,16 +151,24 @@ fn delete_image_request(url: &str, key: &str) -> Result<(), String> {
 }
 
 fn main() {
-    // TODO: Provide link or local path to image
-    // let path = download_img(url); or path = `local`;
-    let path = args().nth(1).expect("error: provide path/to/image");
+    // Get path to image from command line argument or download it if url is provided
+    let path = args().nth(1).expect("error: provide path/to/image"); // Local path or url to image
+    let path = if path.starts_with("https://") {
+        println!("Dowloading image from {path}");
+        download_image(&path).unwrap_or_else(|e| panic!("Failed downloading provided image: {e}"))
+    } else {
+        path
+    };
+
     let delim = " | "; // Delimiter between sources in Markdown string
-    let linx_url = "https://put.icu"; // CDN
+    let linx_url = "https://put.icu"; // linx-server instance url
 
-    // Upload image on linx-server instance
-    let (direct_url, url, delete_key) = upload_cdn(&path, linx_url)
+    println!("Uploading image to {linx_url}");
+    let (direct_url, url, delete_key) = upload(&path, linx_url)
         .unwrap_or_else(|e| panic!("Failed uploading your image on linx-server: {e}"));
+    // TODO: add visual feedback
 
+    println!("Searching for sauce");
     // Get sauce from SauceNAO
     match get_pretty_sauce(&direct_url, &url, delim) {
         Ok(pretty_sauce) => println!("\n{pretty_sauce}\n{direct_url}\n"),
@@ -162,7 +179,7 @@ fn main() {
                     println!("Deletion failed. {e}");
                 } else {
                     println!("Deleted succesfully");
-                    return; // skip printing delete key (might be bad idea)
+                    return; // skip printing delete key
                 }
             }
         }

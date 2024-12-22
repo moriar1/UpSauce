@@ -1,7 +1,7 @@
 # UpSauce
 
 UpSauce uploads your image on [linx-server](https://github.com/ZizzyDizzyMC/linx-server/) instance and
-outputs links to it found on [SauceNAO](https://saucenao.com) as Markdown string, like this: [Pixiv](https://www.pixiv.net/member_illust.php?mode=medium&illust_id=61477678) | [Twitter](https://twitter.com/i/web/status/837653407900934145) | ... | [CDN](https://put.icu/x2zj493c.jpeg)
+outputs links to it found on [SauceNAO](https://saucenao.com) as Markdown string, like this: [Pixiv](https://www.pixiv.net/member_illust.php?mode=medium&illust_id=61477678) | [Twitter](https://twitter.com/i/web/status/837653407900934145) | ... | [Image](https://put.icu/x2zj493c.jpeg)
 
 # Usage
 Sing up on [SauceNAO](https://saucenao.com) and put your API key in `config.json`:
@@ -28,8 +28,8 @@ You will get output like this:
 ```bash
 Skipped ext_url: "https://chan.sankakucomplex.com/post/show/5874087" # This source is not included in the next Markdown string
 
-# Markdown string. All links SauceNAO found + linx-server (CDN) link
-[Pixiv](https://www.pixiv.net/member_illust.php?mode=medium&illust_id=61477678) | [Twitter](https://twitter.com/i/web/status/837653407900934145) | ... | [CDN](https://put.icu/x2zj493c.jpeg)
+# Markdown string. All links SauceNAO found + linx-server file link
+[Pixiv](https://www.pixiv.net/member_illust.php?mode=medium&illust_id=61477678) | [Twitter](https://twitter.com/i/web/status/837653407900934145) | ... | [Image](https://put.icu/x2zj493c.jpeg)
 https://put.icu/s/x2zj493c.jpeg # Direct link to linx-server file
 
 To delete your file on `https://put.icu` use: `curl -H "Linx-Delete-Key: Ypzwq5tT81UkLUiwYuEYXQ5oPWOHaw" -X DELETE https://put.icu/x2zj493c.jpeg` # Delete uploaded file if you no longer need it.
