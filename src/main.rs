@@ -2,6 +2,7 @@ use core::panic;
 use rustnao::HandlerBuilder;
 use std::{
     env::args,
+    path::PathBuf,
     process::{Command, Stdio},
 };
 use url::Url;
@@ -46,22 +47,20 @@ fn upload(path: &str, linx_url: &str) -> Result<(String, String, String), String
     Ok((direct_url.to_owned(), url.to_owned(), delete_key.to_owned()))
 }
 
-fn get_pretty_sauce(direct_url: &str, linx_file_url: &str, delim: &str) -> Result<String, String> {
-    // Get SauceNAO API key
-    let data = std::fs::read_to_string("config.json")
-        .map_err(|e| format!("Failed reading `config.json`: {e}"))?;
-    let json: serde_json::Value = serde_json::from_str(data.as_str())
-        .map_err(|e| format!("JSON not well formatted: {e}."))?;
-    let key = json["api_key"].as_str().ok_or("No api key".to_string())?;
-
+fn get_pretty_sauce(
+    linx_direct_url: &str,
+    linx_file_url: &str,
+    delim: &str,
+    api_key: &str,
+) -> Result<String, String> {
     // SauceNAO request
     let handle = HandlerBuilder::default()
-        .api_key(key)
+        .api_key(api_key)
         .num_results(999)
         .build();
     handle.set_min_similarity(61.0);
     let result = handle
-        .get_sauce_as_pretty_json(direct_url, None, None)
+        .get_sauce_as_pretty_json(linx_direct_url, None, None)
         .map_err(|e| format!("Cannot get sauce: {e}"))?;
     let json_result: serde_json::Value =
         serde_json::from_str(&result).map_err(|e| format!("Failed parse SNAO JSON: {e}"))?;
@@ -133,7 +132,7 @@ fn check_yes_input() -> bool {
 
 fn delete_image_request(url: &str, key: &str) -> Result<(), String> {
     let del_key_str = format!("Linx-Delete-Key: {key}");
-    let a = ["curl", "-H", del_key_str.as_str(), "-X", "DELETE", url];
+    let a = ["-H", del_key_str.as_str(), "-X", "DELETE", url];
 
     let output = Command::new("curl")
         .args(a)
@@ -151,26 +150,60 @@ fn delete_image_request(url: &str, key: &str) -> Result<(), String> {
 }
 
 fn main() {
+    const USAGE_STR: &str = "Usage: upsauce <PATH/URL>
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
+";
+
+    let arg = args().nth(1).unwrap_or_else(|| {
+        println!("{USAGE_STR}");
+        String::new()
+    });
+    let path = match arg.as_str() {
+        "" => return,
+        "--version" | "-V" => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+            return;
+        }
+        "--help" | "-h" => {
+            println!("{USAGE_STR}");
+            return;
+        }
+        _ => arg,
+    };
+
+    // Get SauceNAO API key, linx_url, delimiter between sources from `config.json`
+    let data = std::fs::read_to_string("config.json")
+        .unwrap_or_else(|e| panic!("Failed reading `config.json`: {e}"));
+    let json: serde_json::Value = serde_json::from_str(data.as_str())
+        .unwrap_or_else(|e| panic!("JSON not well formatted: {e}."));
+    let api_key = json["api_key"]
+        .as_str()
+        .unwrap_or_else(|| panic!("No SaunceNAO API key in `config.json`"));
+    let linx_url = json["linx_url"]
+        .as_str()
+        .unwrap_or_else(|| panic!("No linx_url in `config.json`"));
+    let delim = json["delim"].as_str().unwrap_or(" | "); // Delimiter between sources in Markdown string
+
     // Get path to image from command line argument or download it if url is provided
-    let path = args().nth(1).expect("error: provide path/to/image"); // Local path or url to image
     let path = if path.starts_with("https://") {
         println!("Dowloading image from {path}");
         download_image(&path).unwrap_or_else(|e| panic!("Failed downloading provided image: {e}"))
+    } else if !PathBuf::from(&path).exists() {
+        panic!("Path to file do not exists")
     } else {
         path
     };
 
-    let delim = " | "; // Delimiter between sources in Markdown string
-    let linx_url = "https://put.icu"; // linx-server instance url
-
     println!("Uploading image to {linx_url}");
     let (direct_url, url, delete_key) = upload(&path, linx_url)
         .unwrap_or_else(|e| panic!("Failed uploading your image on linx-server: {e}"));
-    // TODO: add visual feedback
 
     println!("Searching for sauce");
     // Get sauce from SauceNAO
-    match get_pretty_sauce(&direct_url, &url, delim) {
+    match get_pretty_sauce(&direct_url, &url, delim, api_key) {
         Ok(pretty_sauce) => println!("\n{pretty_sauce}\n{direct_url}\n"),
         Err(e) => {
             println!("Failed sauce fetching. {e}\nDelete image uploaded on `{linx_url}`? [y/n]");

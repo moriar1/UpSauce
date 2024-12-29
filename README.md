@@ -1,30 +1,34 @@
 # UpSauce
 
-UpSauce uploads your image on [linx-server](https://github.com/ZizzyDizzyMC/linx-server/) instance and
-outputs links to it found on [SauceNAO](https://saucenao.com) as Markdown string, like this: [Pixiv](https://www.pixiv.net/member_illust.php?mode=medium&illust_id=61477678) | [Twitter](https://twitter.com/i/web/status/837653407900934145) | ... | [Image](https://put.icu/x2zj493c.jpeg)
+UpSauce uploads your images on [linx-server](https://github.com/ZizzyDizzyMC/linx-server/) instance and
+outputs links found on [SauceNAO](https://saucenao.com) as a Markdown string, formatted like this: [Pixiv](https://www.pixiv.net/member_illust.php?mode=medium&illust_id=61477678) | [Twitter](https://twitter.com/i/web/status/837653407900934145) | ... | [Image](https://put.icu/x2zj493c.jpeg)
 
 # Usage
-Sing up on [SauceNAO](https://saucenao.com) and put your API key in `config.json`:
+Sign up on [SauceNAO](https://saucenao.com) to obtain your API key. Enter the linx-server instance URL, your SauceNAO API key, and optionally the source delimiter (which defaults to ` | `) in `config.json`:
 
 ```json
 {
-  "api_key": "r4epRxaMzDdmDX"
+  "api_key": "r4epRxaMzDdmDX",
+  "linx_url": "https://put.icu",
+  "delim": " | "
 }
 ```
 
-Copy your image to upload to the git project directory
-(for instance, [this](https://i.imgur.com/W42kkKS.jpg) I got from [RustNao](https://github.com/ClementTsang/RustNAO) example):
+Run `upsauce` with the path to your image as a single command line argument:
 
 ```bash
-cp path/to/your/image.jpg . 
+upsauce path/to/image.jpg
 ```
 
-Then run:
+Alternatively, you can use a direct link to an image (it should end with .jpg, .png, etc.). The image will be downloaded in your current working directory
+(for example, [this](https://i.imgur.com/W42kkKS.jpg) I got from [RustNAO](https://github.com/ClementTsang/RustNAO) example):
+
 ```bash
-cargo run -- image.jpg
+upsauce https://i.imgur.com/W42kkKS.jpg
 ```
 
-You will get output like this:
+You will receive output like this:
+
 ```bash
 Skipped ext_url: "https://chan.sankakucomplex.com/post/show/5874087" # This source is not included in the next Markdown string
 
@@ -36,4 +40,4 @@ To delete your file on `https://put.icu` use: `curl -H "Linx-Delete-Key: Ypzwq5t
 ```
 
 > [!NOTE]
-> If SauceNAO finds several links to the same site, then only the first link found is prints in Markdown string, the rest are marked as skipped.
+> If SauceNAO finds several links to the same site, only the first link found will be printed in the Markdown string, the rest are marked as skipped.
