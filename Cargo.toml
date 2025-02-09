@@ -1,17 +1,23 @@
 [package]
 name = "upsauce"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = [ "moriar1" ]
 license = "MIT license"
-description = "UpSauce uploads your image on linx-server instance and get the links to it found on SauceNAO as Markdown string."
+description = "UpSauce uploads your image on linx-server instance and prints the links to it found on SauceNAO as Markdown string."
 readme = "README.md"
 repository = "https://github.com/moriar1/UpSauce"
 keywords = [ "cli", "saucenao", "linx-server", "image", "anime" ]
 
 [dependencies]
+anyhow = "1.0.95"
+clap = { version = "4.5.28", features = ["derive"] }
+lazy_static = "1.5.0"
+reqwest = { version = "0.12.12", features = ["blocking", "multipart"] }
 rustnao = "0.3.4"
+serde = "1.0.217"
 serde_json = "1.0.133"
+tokio = { version = "1.43.0", features = ["full"] }
 url = "2.5.4"
 
 [[bin]]
