@@ -1,10 +1,10 @@
 [package]
 name = "upsauce"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 authors = [ "moriar1" ]
 license = "MIT license"
-description = "UpSauce uploads your image on linx-server instance and prints the links to it found on SauceNAO as Markdown string."
+description = "UpSauce uploads your image to a linx-server instance and retrieves links found on SauceNAO formatting them as a Markdown string."
 readme = "README.md"
 repository = "https://github.com/moriar1/UpSauce"
 keywords = [ "cli", "saucenao", "linx-server", "image", "anime" ]

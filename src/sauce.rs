@@ -6,39 +6,6 @@ pub struct Sauce {
     pub url: String,
 }
 
-/// Returns Markdown String of sauces splitted with `delim`:
-/// [sauce1](http..) | [sauce2](http..) | [sauce3](http..)
-///
-/// # Errors
-///
-/// see `get_sauces()`
-pub async fn get_pretty_sauces(
-    image_path: &str,
-    image_fss_path: &str, // Might be empty
-    delim: &str,
-    api_key: &str,
-) -> Result<String> {
-    let (sauces, skipped) = get_sauces(image_path, api_key).await?;
-    let mut md_string = String::new();
-
-    for sauce in sauces {
-        md_string += &format!("[{}]({}){}", sauce.name, sauce.url, delim);
-    }
-    for skipped in &skipped {
-        println!("Skipped ext_url: {skipped}");
-    }
-
-    if !skipped.is_empty() {
-        println!();
-    }
-
-    if image_fss_path.is_empty() {
-        md_string.pop(); // remove last `delim`
-        Ok(md_string)
-    } else {
-        Ok(md_string + &format!("[Image]({})", image_fss_path))
-    }
-}
 #[must_use]
 pub fn get_sauce_name(source_url: &str) -> &'static str {
     //TODO: Maybe better use lazy_static
@@ -95,7 +62,7 @@ pub async fn get_sauces(image_path: &str, api_key: &str) -> Result<(Vec<Sauce>, 
     let json_result: serde_json::Value =
         serde_json::from_str(&result).context("Failed parse SNAO JSON: {e}")?;
 
-    // Creating `Vec` of sauces and Vec of unknown/garbage sauces
+    // Creating `Vec` of sauces and `Vec` of unknown/garbage sauces
     let (mut sauces, mut skipped) = (vec![], vec![]);
     let mut copy_helper = String::new(); // helps to check has sauce already been added
 
